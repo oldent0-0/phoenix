@@ -18,6 +18,27 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.phoenix-focus-dashboard {
+  color-scheme: dark;
+  --background: #101411;
+  --foreground: #edf1ed;
+  --card: #151a16;
+  --card-foreground: #edf1ed;
+  --popover: #151a16;
+  --popover-foreground: #edf1ed;
+  --primary: #75a88b;
+  --primary-foreground: #101a13;
+  --secondary: #202820;
+  --secondary-foreground: #edf1ed;
+  --muted: #202820;
+  --muted-foreground: #a2ada5;
+  --accent: #243129;
+  --accent-foreground: #edf1ed;
+  --border: #2a352e;
+  --input: #2a352e;
+  --ring: #75a88b;
+}
+
 @theme {
   --font-*: initial;
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
