@@ -12,7 +12,8 @@
   "dependencies": {
     "@tabler/icons-react": "^3.48.0",
     "framer-motion": "^14.6.0",
-    "lucide-react": "^1.61.0"
+    "lucide-react": "^1.61.0",
+    "usehooks-ts": "^3.1.1"
   },
   "devDependencies": {
     "@apollo/client": "^3.14.1",

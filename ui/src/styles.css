@@ -18,25 +18,483 @@
 
 @custom-variant dark (&:is(.dark *));
 
-.phoenix-focus-dashboard {
+.phoenix-theme-dark,
+.phoenix-theme-light {
+  --phoenix-blue-50: #e5f0ff;
+  --phoenix-blue-100: #cce0ff;
+  --phoenix-blue-200: #99c2ff;
+  --phoenix-blue-300: #66a3ff;
+  --phoenix-blue-400: #3385ff;
+  --phoenix-timer-track: var(--phoenix-surface-strong);
+  --phoenix-timer-progress: var(--phoenix-blue-300);
+  --phoenix-bg: #101d32;
+  --phoenix-surface: #162744;
+  --phoenix-surface-strong: #20385c;
+  --phoenix-surface-soft: rgb(102 163 255 / 16%);
+  --phoenix-border: rgb(153 194 255 / 26%);
+  --phoenix-text: #f1f6ff;
+  --phoenix-muted: #cce0ff;
+  --phoenix-accent: var(--phoenix-blue-400);
+  --background: var(--phoenix-bg);
+  --foreground: var(--phoenix-text);
+  --card: var(--phoenix-surface);
+  --card-foreground: var(--phoenix-text);
+  --popover: var(--phoenix-surface-strong);
+  --popover-foreground: var(--phoenix-text);
+  --primary: var(--phoenix-blue-400);
+  --primary-foreground: #ffffff;
+  --secondary: var(--phoenix-surface-strong);
+  --secondary-foreground: var(--phoenix-text);
+  --muted: var(--phoenix-surface-strong);
+  --muted-foreground: var(--phoenix-muted);
+  --accent: rgb(102 163 255 / 22%);
+  --accent-foreground: var(--phoenix-text);
+  --border: var(--phoenix-border);
+  --input: var(--phoenix-border);
+  --ring: var(--phoenix-blue-300);
+  --sidebar-background: #101d32;
+  --sidebar-foreground: var(--phoenix-text);
+  --sidebar-primary: var(--phoenix-blue-400);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--phoenix-surface-strong);
+  --sidebar-accent-foreground: var(--phoenix-text);
+  --sidebar-border: var(--phoenix-border);
+  --sidebar-ring: var(--phoenix-blue-300);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--phoenix-bg);
+  color: var(--phoenix-text);
   color-scheme: dark;
-  --background: #101411;
-  --foreground: #edf1ed;
-  --card: #151a16;
-  --card-foreground: #edf1ed;
-  --popover: #151a16;
-  --popover-foreground: #edf1ed;
-  --primary: #75a88b;
-  --primary-foreground: #101a13;
-  --secondary: #202820;
-  --secondary-foreground: #edf1ed;
-  --muted: #202820;
-  --muted-foreground: #a2ada5;
-  --accent: #243129;
-  --accent-foreground: #edf1ed;
-  --border: #2a352e;
-  --input: #2a352e;
-  --ring: #75a88b;
+}
+
+.phoenix-theme-light {
+  --phoenix-bg: var(--phoenix-blue-100);
+  --phoenix-surface: var(--phoenix-blue-50);
+  --phoenix-surface-strong: var(--phoenix-blue-100);
+  --phoenix-surface-soft: rgb(153 194 255 / 35%);
+  --phoenix-border: rgb(51 133 255 / 28%);
+  --phoenix-timer-track: var(--phoenix-blue-200);
+  --phoenix-timer-progress: var(--phoenix-blue-400);
+  --phoenix-text: #002966;
+  --phoenix-muted: #002966;
+  --background: var(--phoenix-bg);
+  --foreground: var(--phoenix-text);
+  --card: var(--phoenix-surface);
+  --card-foreground: var(--phoenix-text);
+  --popover: var(--phoenix-blue-50);
+  --popover-foreground: var(--phoenix-text);
+  --primary: var(--phoenix-blue-400);
+  --primary-foreground: #ffffff;
+  --secondary: var(--phoenix-blue-100);
+  --secondary-foreground: var(--phoenix-text);
+  --muted: var(--phoenix-blue-200);
+  --muted-foreground: var(--phoenix-muted);
+  --accent: var(--phoenix-blue-200);
+  --accent-foreground: var(--phoenix-text);
+  --border: var(--phoenix-border);
+  --input: var(--phoenix-border);
+  --ring: var(--phoenix-blue-300);
+  --sidebar-background: var(--phoenix-blue-100);
+  --sidebar-foreground: var(--phoenix-text);
+  --sidebar-primary: var(--phoenix-blue-400);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--phoenix-blue-200);
+  --sidebar-accent-foreground: var(--phoenix-text);
+  --sidebar-border: var(--phoenix-border);
+  --sidebar-ring: var(--phoenix-blue-300);
+  color-scheme: light;
+}
+
+.phoenix-theme-light :where(*) {
+  color: #002966;
+}
+
+.phoenix-theme-light .phoenix-focus-dashboard [class*="phoenix:text-[#"] {
+  color: #002966 !important;
+}
+
+.phoenix-theme-dark .phoenix-focus-dashboard :where(*) {
+  color: #e4edf8 !important;
+}
+
+.phoenix-theme-light :where(input, textarea)::placeholder {
+  color: #002966;
+  opacity: 0.72;
+}
+
+.phoenix-theme-light .phoenix-coin-pill {
+  border-color: var(--phoenix-blue-300) !important;
+  background: var(--phoenix-blue-100) !important;
+  color: #002966 !important;
+}
+
+.phoenix-theme-light .phoenix-timer-control {
+  border-color: var(--phoenix-blue-400) !important;
+  background: var(--phoenix-blue-400) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgb(51 133 255 / 18%) !important;
+  text-shadow: none !important;
+}
+
+.phoenix-theme-light .phoenix-timer-control::before,
+.phoenix-theme-light .phoenix-timer-control::after {
+  display: none;
+}
+
+.phoenix-theme-light .phoenix-timer-control:hover {
+  background: var(--phoenix-blue-300) !important;
+}
+
+.phoenix-theme-light .phoenix-timer-control:focus-visible {
+  outline-color: var(--phoenix-blue-400);
+}
+
+.phoenix-focus-dashboard {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgb(51 133 255 / 18%), transparent 32rem),
+    radial-gradient(ellipse at 88% 70%, rgb(102 163 255 / 12%), transparent 36rem),
+    var(--phoenix-bg);
+  --background: var(--phoenix-bg);
+  --foreground: var(--phoenix-text);
+  --card: var(--phoenix-surface);
+  --card-foreground: var(--phoenix-text);
+  --popover: var(--phoenix-surface-strong);
+  --popover-foreground: var(--phoenix-text);
+  --primary: var(--phoenix-blue-400);
+  --primary-foreground: #ffffff;
+  --secondary: var(--phoenix-surface-strong);
+  --secondary-foreground: var(--phoenix-text);
+  --muted: var(--phoenix-surface-soft);
+  --muted-foreground: var(--phoenix-muted);
+  --accent: var(--phoenix-surface-soft);
+  --accent-foreground: var(--phoenix-text);
+  --border: var(--phoenix-border);
+  --input: var(--phoenix-border);
+  --ring: var(--phoenix-blue-300);
+}
+
+.phoenix-theme-light .phoenix-focus-dashboard {
+  background:
+    radial-gradient(ellipse at 12% 8%, rgb(102 163 255 / 24%), transparent 32rem),
+    radial-gradient(ellipse at 88% 70%, rgb(153 194 255 / 42%), transparent 36rem),
+    var(--phoenix-bg);
+}
+
+.phoenix-focus-dashboard [class*="phoenix:bg-[#"] {
+  background-color: var(--phoenix-surface-strong) !important;
+}
+
+.phoenix-focus-dashboard [class*="phoenix:text-[#"] {
+  color: var(--phoenix-blue-400) !important;
+}
+
+.phoenix-focus-dashboard [class*="phoenix:border-[#"] {
+  border-color: var(--phoenix-border) !important;
+}
+
+.phoenix-focus-dashboard .phoenix-glass-panel,
+.phoenix-focus-dashboard .phoenix-glass-control,
+.phoenix-focus-dashboard .phoenix-glass-inset {
+  border-color: var(--phoenix-border) !important;
+}
+
+.phoenix-focus-dashboard .phoenix-glass-panel {
+  background: color-mix(in srgb, var(--phoenix-surface) 86%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    0 12px 28px rgb(0 0 0 / 24%) !important;
+}
+
+.phoenix-focus-dashboard .phoenix-glass-control,
+.phoenix-focus-dashboard .phoenix-glass-inset {
+  background: color-mix(in srgb, var(--phoenix-surface-strong) 78%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 3px 10px rgb(0 0 0 / 16%) !important;
+}
+
+.phoenix-theme-light .phoenix-focus-dashboard .phoenix-glass-panel {
+  background: color-mix(in srgb, var(--phoenix-blue-50) 88%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 65%),
+    0 10px 24px rgb(51 133 255 / 12%) !important;
+}
+
+.phoenix-theme-light .phoenix-focus-dashboard .phoenix-glass-control,
+.phoenix-theme-light .phoenix-focus-dashboard .phoenix-glass-inset {
+  background: color-mix(in srgb, var(--phoenix-blue-100) 84%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 60%),
+    0 3px 9px rgb(51 133 255 / 10%) !important;
+}
+
+.phoenix-avatar-dialog {
+  display: flex !important;
+  width: calc(100% - 2rem) !important;
+  min-width: 0;
+  min-height: 0;
+  flex: none !important;
+  flex-direction: column;
+  overflow: hidden;
+  border-color: var(--phoenix-border) !important;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgb(51 133 255 / 18%), transparent 24rem),
+    radial-gradient(ellipse at 88% 70%, rgb(102 163 255 / 12%), transparent 28rem),
+    var(--phoenix-bg) !important;
+  color: var(--phoenix-text) !important;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-dark :where(*) {
+  color: #e4edf8 !important;
+}
+
+.phoenix-avatar-dialog .phoenix-glass-panel,
+.phoenix-avatar-dialog .phoenix-glass-control,
+.phoenix-avatar-dialog .phoenix-glass-inset {
+  border-color: var(--phoenix-border) !important;
+}
+
+.phoenix-avatar-dialog .phoenix-glass-panel {
+  background: color-mix(in srgb, var(--phoenix-surface) 86%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    0 12px 28px rgb(0 0 0 / 24%) !important;
+}
+
+.phoenix-avatar-dialog .phoenix-glass-control,
+.phoenix-avatar-dialog .phoenix-glass-inset {
+  background: color-mix(in srgb, var(--phoenix-surface-strong) 78%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 3px 10px rgb(0 0 0 / 16%) !important;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light {
+  background:
+    radial-gradient(ellipse at 12% 8%, rgb(102 163 255 / 24%), transparent 24rem),
+    radial-gradient(ellipse at 88% 70%, rgb(153 194 255 / 42%), transparent 28rem),
+    var(--phoenix-bg) !important;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-glass-panel {
+  background: color-mix(in srgb, var(--phoenix-blue-50) 88%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 65%),
+    0 10px 24px rgb(51 133 255 / 12%) !important;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-glass-control,
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-glass-inset {
+  background: color-mix(in srgb, var(--phoenix-blue-100) 84%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 60%),
+    0 3px 9px rgb(51 133 255 / 10%) !important;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-avatar-icon-tile {
+  border: 1px solid rgb(51 133 255 / 20%);
+  background: #d5e7ff !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    0 2px 6px rgb(51 133 255 / 10%);
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-avatar-selected {
+  border-color: var(--phoenix-blue-400) !important;
+  background: var(--phoenix-blue-200) !important;
+  color: #002966 !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 45%),
+    0 2px 8px rgb(51 133 255 / 16%) !important;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-avatar-selected::before,
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-avatar-selected::after {
+  display: none;
+}
+
+.phoenix-avatar-dialog.phoenix-theme-light .phoenix-avatar-selected :where(*) {
+  color: inherit !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-card {
+  border-color: #c5dcff !important;
+  background: #e3efff !important;
+  color: #082f69 !important;
+  box-shadow: 0 10px 24px rgb(51 133 255 / 12%) !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-heading,
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-count,
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-task,
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-number,
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-delete,
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-empty {
+  color: #082f69 !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-input {
+  border-color: #9bc1ff !important;
+  background: #d5e7ff !important;
+  color: #082f69 !important;
+  box-shadow: inset 0 1px 2px rgb(51 133 255 / 10%) !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-input::placeholder {
+  color: #315b91 !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-add {
+  border-color: #3385ff !important;
+  background: #3385ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 8px rgb(51 133 255 / 24%) !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-add:disabled {
+  opacity: 1;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-plus {
+  color: #ffffff !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-check {
+  border-color: #9bc1ff !important;
+}
+
+.phoenix-focus-dashboard.phoenix-theme-light .phoenix-todo-check[aria-label^="Reopen"] {
+  border-color: #3385ff !important;
+  background: #3385ff !important;
+  color: #ffffff !important;
+}
+
+@theme {
+  --font-*: initial;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 0.875rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.125rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.5rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.75rem;
+
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-sidebar: var(--sidebar-background);
+  --color-scroll: var(--scroll);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --shadow-xs: 0 0 0 1px var(--border-shadow), 0 1px 1px var(--shadow), 0 2px 2px var(--shadow);
+  --shadow-sm:
+    0 0 0 1px var(--border-shadow), 0 1px 1px var(--shadow), 0 2px 2px var(--shadow),
+    0 4px 4px var(--shadow);
+  --shadow-lg:
+    0 0 0 1px var(--border-shadow), 0 1px 1px var(--shadow), 0 2px 2px var(--shadow),
+    0 4px 4px var(--shadow), 0 8px 8px var(--shadow);
+}
+
+.phoenix-glass-panel {
+  border-color: var(--phoenix-border) !important;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 1%) 52%),
+    var(--phoenix-surface) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 16px 40px rgb(20 55 110 / 14%),
+    0 1px 2px rgb(20 55 110 / 10%) !important;
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+.phoenix-glass-control {
+  border-color: var(--phoenix-border) !important;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 1%)),
+    var(--phoenix-surface-strong) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+}
+
+.phoenix-glass-inset {
+  border-color: var(--phoenix-border) !important;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 5%), rgb(255 255 255 / 1%)), var(--phoenix-surface) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+.phoenix-scene-meadow {
+  background:
+    radial-gradient(ellipse at 50% 20%, rgb(102 163 255 / 30%), transparent 55%),
+    linear-gradient(145deg, rgb(51 133 255 / 32%), rgb(22 39 68 / 78%)) !important;
+}
+
+.phoenix-scene-moonlit {
+  background:
+    radial-gradient(ellipse at 50% 15%, rgb(153 194 255 / 30%), transparent 50%),
+    linear-gradient(145deg, rgb(51 133 255 / 38%), rgb(16 29 50 / 82%)) !important;
+}
+
+.phoenix-scene-autumn {
+  background:
+    radial-gradient(ellipse at 50% 18%, rgb(204 224 255 / 28%), transparent 54%),
+    linear-gradient(145deg, rgb(102 163 255 / 34%), rgb(22 39 68 / 82%)) !important;
+}
+
+.phoenix-pallas-awake {
+  animation: phoenix-pallas-wake 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes phoenix-pallas-wake {
+  from {
+    transform: translateY(-2px) rotate(-0.5deg);
+  }
+
+  to {
+    transform: translateY(2px) rotate(0.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phoenix-pallas-awake {
+    animation: none;
+  }
 }
 
 @theme {

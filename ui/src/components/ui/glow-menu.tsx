@@ -73,7 +73,7 @@ export const MenuBar = React.forwardRef<HTMLElement, MenuBarProps>(
       ref={ref}
       aria-label="Timer modes"
       className={cn(
-        "phoenix:group phoenix:relative phoenix:overflow-hidden phoenix:rounded-2xl phoenix:border phoenix:border-border/40 phoenix:bg-background/80 phoenix:p-2 phoenix:shadow-lg phoenix:backdrop-blur-lg",
+        "phoenix-glass-panel phoenix:group phoenix:relative phoenix:overflow-hidden phoenix:rounded-2xl phoenix:border phoenix:border-border/40 phoenix:bg-background/80 phoenix:p-2 phoenix:shadow-lg phoenix:backdrop-blur-xl",
         className,
       )}
       initial="initial"
