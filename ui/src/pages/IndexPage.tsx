@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   IconCheck,
+  IconChartBar,
+  IconChevronDown,
   IconClock,
   IconCoffee,
-  IconListCheck,
+  IconMoodSmile,
   IconPlayerPause,
   IconPlayerPlay,
   IconPlayerSkipForward,
@@ -13,21 +15,18 @@ import {
   IconTarget,
   IconTrash,
   IconUserCircle,
+  IconVolume,
 } from "@tabler/icons-react";
 import { Coffee, Sparkles, Timer } from "lucide-react";
-import { Breadcrumb, Button, Card, Separator, Sheet } from "erxes-ui";
-import { PageHeader } from "ui-modules";
-import { Link } from "react-router";
+import { Button, Card, Separator, Sheet } from "erxes-ui";
 import manifest from "../../../erxes.json" with { type: "json" };
 import { MenuBar } from "~/components/ui/glow-menu";
 
-const { path } = manifest.ui;
-const STORAGE_KEY = "phoenix:pomodoro-timer";
+const TIMER_STORAGE_KEY = "phoenix:pomodoro-timer";
 const PROFILE_STORAGE_KEY = "phoenix:pomodoro-profile";
 const TODO_STORAGE_KEY = "phoenix:pomodoro-todos";
 const CYCLE_LENGTH = 4;
 const AVATAR_CHOICES = ["🙂", "🧑‍🎓", "👩‍🎓", "👨‍🎓", "🦊", "🐼", "🐸", "🐱", "🌱"];
-
 const DURATIONS = {
   focus: 25 * 60 * 1000,
   shortBreak: 5 * 60 * 1000,
@@ -35,6 +34,7 @@ const DURATIONS = {
 } as const;
 
 type TimerMode = keyof typeof DURATIONS;
+type DashboardTab = "timer" | "progress" | "character";
 
 interface TimerState {
   mode: TimerMode;
@@ -56,8 +56,6 @@ interface TodoItem {
   completed: boolean;
 }
 
-const DEFAULT_PROFILE: Profile = { name: "", avatar: "🙂" };
-
 const DEFAULT_TIMER: TimerState = {
   mode: "focus",
   remainingMs: DURATIONS.focus,
@@ -66,54 +64,57 @@ const DEFAULT_TIMER: TimerState = {
   focusSessions: 0,
   task: "",
 };
-
+const DEFAULT_PROFILE: Profile = { name: "", avatar: "🙂" };
 const MODE_LABELS: Record<TimerMode, string> = {
   focus: "Focus",
   shortBreak: "Short break",
   longBreak: "Long break",
 };
-
 const TIMER_MENU_ITEMS = [
   {
     icon: Timer,
     label: "Focus",
     href: "#focus",
     gradient:
-      "radial-gradient(circle, rgba(59,130,246,0.18) 0%, rgba(37,99,235,0.06) 55%, transparent 100%)",
-    iconColor: "phoenix:text-blue-500",
+      "radial-gradient(circle, rgba(117,168,139,0.2) 0%, rgba(67,117,91,0.08) 55%, transparent 100%)",
+    iconColor: "phoenix:text-emerald-300",
   },
   {
     icon: Coffee,
     label: "Short break",
     href: "#short-break",
     gradient:
-      "radial-gradient(circle, rgba(249,115,22,0.18) 0%, rgba(234,88,12,0.06) 55%, transparent 100%)",
-    iconColor: "phoenix:text-orange-500",
+      "radial-gradient(circle, rgba(217,173,108,0.2) 0%, rgba(168,118,60,0.08) 55%, transparent 100%)",
+    iconColor: "phoenix:text-amber-300",
   },
   {
     icon: Sparkles,
     label: "Long break",
     href: "#long-break",
     gradient:
-      "radial-gradient(circle, rgba(34,197,94,0.18) 0%, rgba(22,163,74,0.06) 55%, transparent 100%)",
-    iconColor: "phoenix:text-green-500",
+      "radial-gradient(circle, rgba(126,158,194,0.2) 0%, rgba(77,112,151,0.08) 55%, transparent 100%)",
+    iconColor: "phoenix:text-sky-300",
   },
 ] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const loadTimer = (): TimerState => {
-  if (typeof window === "undefined") {
-    return DEFAULT_TIMER;
+const readStorage = (key: string): string | null => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (error) {
+    console.error(`Unable to read ${key}`, error);
+    return null;
   }
+};
+
+const loadTimer = (): TimerState => {
+  if (typeof window === "undefined") return DEFAULT_TIMER;
+  const saved = readStorage(TIMER_STORAGE_KEY);
+  if (!saved) return DEFAULT_TIMER;
 
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-      return DEFAULT_TIMER;
-    }
-
     const value: unknown = JSON.parse(saved);
     if (
       !isRecord(value) ||
@@ -134,7 +135,6 @@ const loadTimer = (): TimerState => {
     ) {
       throw new Error("Saved timer state has an invalid format");
     }
-
     return {
       mode: value.mode,
       remainingMs: value.remainingMs,
@@ -150,16 +150,11 @@ const loadTimer = (): TimerState => {
 };
 
 const loadProfile = (): Profile => {
-  if (typeof window === "undefined") {
-    return DEFAULT_PROFILE;
-  }
+  if (typeof window === "undefined") return DEFAULT_PROFILE;
+  const saved = readStorage(PROFILE_STORAGE_KEY);
+  if (!saved) return DEFAULT_PROFILE;
 
   try {
-    const saved = window.localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (!saved) {
-      return DEFAULT_PROFILE;
-    }
-
     const value: unknown = JSON.parse(saved);
     if (
       !isRecord(value) ||
@@ -169,7 +164,6 @@ const loadProfile = (): Profile => {
     ) {
       throw new Error("Saved profile has an invalid format");
     }
-
     return { name: value.name.slice(0, 40), avatar: value.avatar };
   } catch (error) {
     console.error("Unable to restore Phoenix profile", error);
@@ -178,16 +172,11 @@ const loadProfile = (): Profile => {
 };
 
 const loadTodos = (): TodoItem[] => {
-  if (typeof window === "undefined") {
-    return [];
-  }
+  if (typeof window === "undefined") return [];
+  const saved = readStorage(TODO_STORAGE_KEY);
+  if (!saved) return [];
 
   try {
-    const saved = window.localStorage.getItem(TODO_STORAGE_KEY);
-    if (!saved) {
-      return [];
-    }
-
     const value: unknown = JSON.parse(saved);
     if (
       !Array.isArray(value) ||
@@ -201,7 +190,6 @@ const loadTodos = (): TodoItem[] => {
     ) {
       throw new Error("Saved to-do list has an invalid format");
     }
-
     return value;
   } catch (error) {
     console.error("Unable to restore Phoenix to-do list", error);
@@ -210,11 +198,88 @@ const loadTodos = (): TodoItem[] => {
 };
 
 const formatTime = (milliseconds: number) => {
-  const totalSeconds = Math.ceil(milliseconds / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const seconds = Math.ceil(milliseconds / 1000);
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 };
+
+const RestingCat = () => (
+  <svg
+    viewBox="0 0 520 240"
+    role="img"
+    aria-label="A cat resting peacefully"
+    className="phoenix:h-44 phoenix:w-full phoenix:max-w-lg"
+  >
+    <ellipse cx="260" cy="208" rx="158" ry="16" fill="#35483b" />
+    <path
+      d="M119 166c0-36 37-61 83-61 18-31 63-48 118-38 51 9 85 36 89 70 31 5 50 20 50 39 0 24-34 37-79 37H205c-48 0-86-15-86-47Z"
+      fill="#d9b68b"
+    />
+    <path d="m150 121-5-43 43 25m137-1 31-34 8 51" fill="#d9b68b" />
+    <path d="m157 108-2-18 21 12m161-2 16-18 4 28" fill="#b87872" />
+    <ellipse cx="192" cy="151" rx="45" ry="40" fill="#e7c9a1" />
+    <path
+      d="M172 150c7 8 15 8 22 0m8 0c7 8 15 8 22 0"
+      fill="none"
+      stroke="#665548"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <path d="m207 160 6 5 6-5" fill="#b87872" />
+    <path
+      d="M213 165c-3 9-11 11-18 6m18-6c3 9 11 11 18 6"
+      fill="none"
+      stroke="#8a6753"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <path
+      d="M261 115c15 13 18 27 14 42m22-42c15 13 18 27 14 42m23-34c13 12 16 24 13 37"
+      fill="none"
+      stroke="#b98e6d"
+      strokeWidth="10"
+      strokeLinecap="round"
+    />
+    <ellipse cx="167" cy="190" rx="39" ry="13" fill="#f0d8b5" />
+    <path
+      d="M364 172c32-30 60-24 65-7 7 23-28 34-53 30"
+      fill="none"
+      stroke="#b98e6d"
+      strokeWidth="18"
+      strokeLinecap="round"
+    />
+    <path
+      d="M115 108c-9-13 9-22 22-9m211-27c9-13 27-4 18 9m34 26c10-12 27-2 17 10"
+      fill="#637064"
+      opacity=".55"
+    />
+  </svg>
+);
+
+const TabButton = ({
+  active,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: typeof IconClock;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    aria-current={active ? "page" : undefined}
+    onClick={onClick}
+    className={`phoenix:flex phoenix:items-center phoenix:gap-2 phoenix:rounded-xl phoenix:border phoenix:px-3 phoenix:py-2 phoenix:text-xs phoenix:transition-colors ${
+      active
+        ? "phoenix:border-[#344b3c] phoenix:bg-[#1b2920] phoenix:text-[#91c5a5]"
+        : "phoenix:border-[#29332c] phoenix:text-muted-foreground hover:phoenix:bg-[#1b211d]"
+    }`}
+  >
+    <Icon className="phoenix:size-4" />
+    {label}
+  </button>
+);
 
 export const IndexPage = () => {
   const [timer, setTimer] = useState<TimerState>(loadTimer);
@@ -222,15 +287,22 @@ export const IndexPage = () => {
   const [todos, setTodos] = useState<TodoItem[]>(loadTodos);
   const [newTodo, setNewTodo] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [ambient, setAmbient] = useState("Rainy afternoon");
+  const [ambientOn, setAmbientOn] = useState(true);
+  const [sleepMode, setSleepMode] = useState(true);
+  const [activeTab, setActiveTab] = useState<DashboardTab>("timer");
   const [now, setNow] = useState(() => Date.now());
   const remainingMs =
     timer.isRunning && timer.endsAt !== null ? Math.max(0, timer.endsAt - now) : timer.remainingMs;
-  const duration = DURATIONS[timer.mode];
-  const progress = Math.min(1, Math.max(0, 1 - remainingMs / duration));
+  const progress = Math.min(1, Math.max(0, 1 - remainingMs / DURATIONS[timer.mode]));
+  const completedInCycle = timer.focusSessions % CYCLE_LENGTH;
+  const completedTodos = todos.filter((todo) => todo.completed).length;
+  const currentTask =
+    timer.task || todos.find((todo) => !todo.completed)?.title || "Read a chapter";
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(timer));
+      window.localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
     } catch (error) {
       console.error("Unable to save Phoenix timer state", error);
     }
@@ -253,25 +325,21 @@ export const IndexPage = () => {
   }, [todos]);
 
   useEffect(() => {
-    if (!timer.isRunning) {
-      return;
-    }
-
+    if (!timer.isRunning) return;
     const interval = window.setInterval(() => setNow(Date.now()), 200);
     return () => window.clearInterval(interval);
   }, [timer.isRunning]);
 
-  const advancePhase = useCallback((countFocusSession: boolean) => {
+  const advancePhase = useCallback((countSession: boolean) => {
     setTimer((current) => {
       const focusSessions =
-        current.focusSessions + Number(countFocusSession && current.mode === "focus");
+        current.focusSessions + Number(countSession && current.mode === "focus");
       const nextMode: TimerMode =
         current.mode !== "focus"
           ? "focus"
           : focusSessions > 0 && focusSessions % CYCLE_LENGTH === 0
             ? "longBreak"
             : "shortBreak";
-
       return {
         ...current,
         mode: nextMode,
@@ -284,9 +352,7 @@ export const IndexPage = () => {
   }, []);
 
   useEffect(() => {
-    if (timer.isRunning && remainingMs === 0) {
-      advancePhase(true);
-    }
+    if (timer.isRunning && remainingMs === 0) advancePhase(true);
   }, [advancePhase, remainingMs, timer.isRunning]);
 
   const selectMode = (mode: TimerMode) => {
@@ -307,7 +373,6 @@ export const IndexPage = () => {
         advancePhase(true);
         return;
       }
-
       setTimer((current) => ({
         ...current,
         remainingMs: remaining,
@@ -316,384 +381,521 @@ export const IndexPage = () => {
       }));
       return;
     }
-
     setNow(Date.now());
     setTimer((current) => ({
       ...current,
+      task: current.task || currentTask,
       endsAt: Date.now() + current.remainingMs,
       isRunning: true,
-    }));
-  };
-
-  const resetTimer = () => {
-    setTimer((current) => ({
-      ...current,
-      remainingMs: DURATIONS[current.mode],
-      endsAt: null,
-      isRunning: false,
     }));
   };
 
   const addTodo = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const title = newTodo.trim();
-    if (!title) {
-      return;
-    }
-
-    setTodos((current) => [
-      ...current,
-      { id: window.crypto.randomUUID(), title, completed: false },
-    ]);
+    if (!title) return;
+    const todo = { id: window.crypto.randomUUID(), title, completed: false };
+    setTodos((current) => [...current, todo]);
+    setTimer((current) => ({ ...current, task: title }));
     setNewTodo("");
   };
 
-  const toggleTodo = (id: string) => {
-    setTodos((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, completed: !item.completed } : item,
-      ),
-    );
-  };
-
-  const removeTodo = (id: string) => {
-    setTodos((current) => current.filter((item) => item.id !== id));
-  };
-
-  const completedInCycle = timer.focusSessions % CYCLE_LENGTH;
-  const completedTodos = todos.filter((item) => item.completed).length;
-  const openTodos = todos.filter((item) => !item.completed);
+  const completedSessions = timer.focusSessions;
+  const remainingToLongBreak =
+    completedInCycle === 0 ? CYCLE_LENGTH : CYCLE_LENGTH - completedInCycle;
 
   return (
-    <div className="phoenix:flex phoenix:h-full phoenix:flex-col">
-      <PageHeader>
-        <PageHeader.Start>
+    <div className="phoenix-focus-dashboard phoenix:flex phoenix:h-full phoenix:min-h-0 phoenix:flex-col phoenix:bg-background phoenix:text-foreground">
+      <header className="phoenix:flex phoenix:flex-wrap phoenix:items-center phoenix:justify-between phoenix:gap-3 phoenix:border-b phoenix:border-[#263129] phoenix:px-4 phoenix:py-3 phoenix:md:px-6">
+        <div className="phoenix:flex phoenix:items-center phoenix:gap-3">
+          <div className="phoenix:flex phoenix:size-9 phoenix:items-center phoenix:justify-center phoenix:rounded-xl phoenix:bg-[#1a2920] phoenix:text-[#83b495]">
+            <IconTarget className="phoenix:size-5" />
+          </div>
+          <div>
+            <p className="phoenix:text-base phoenix:font-semibold phoenix:tracking-tight">
+              little by little
+            </p>
+            <p className="phoenix:text-[10px] phoenix:text-muted-foreground">
+              Quiet focus, one step at a time
+            </p>
+          </div>
+        </div>
+        <div className="phoenix:flex phoenix:items-center phoenix:gap-2">
+          <span className="phoenix:rounded-full phoenix:border phoenix:border-[#344336] phoenix:bg-[#1a241c] phoenix:px-3 phoenix:py-1.5 phoenix:text-[11px] phoenix:font-medium phoenix:text-[#b5c6b7]">
+            ✦ &nbsp;Session {completedInCycle + 1} of {CYCLE_LENGTH}
+          </span>
+          <span className="phoenix:hidden phoenix:rounded-full phoenix:border phoenix:border-[#344336] phoenix:bg-[#1a241c] phoenix:px-3 phoenix:py-1.5 phoenix:text-[11px] phoenix:text-muted-foreground phoenix:sm:inline">
+            {ambient}
+          </span>
           <Button
-            variant="outline"
-            size="icon"
-            aria-label="Open profile and avatar customization"
-            aria-expanded={profileOpen}
-            onClick={() => setProfileOpen(true)}
+            variant="ghost"
+            size="sm"
+            className="phoenix:rounded-full phoenix:border phoenix:border-[#344336] phoenix:bg-[#1a241c] phoenix:px-3"
+            onClick={() => {
+              setActiveTab("character");
+              setProfileOpen(true);
+            }}
           >
-            <IconUserCircle />
+            <IconUserCircle className="phoenix:size-4" />
+            <span className="phoenix:flex phoenix:size-5 phoenix:items-center phoenix:justify-center phoenix:rounded-full phoenix:bg-[#49765a] phoenix:text-[10px] phoenix:text-white">
+              {profile.avatar}
+            </span>
+            {profile.name || manifest.title}
           </Button>
-          <Separator.Inline />
-          <Breadcrumb>
-            <Breadcrumb.List className="phoenix:gap-1">
-              <Breadcrumb.Item>
-                <Button variant="ghost" asChild>
-                  <Link to={`/${path}`}>{manifest.title}</Link>
-                </Button>
-              </Breadcrumb.Item>
-            </Breadcrumb.List>
-          </Breadcrumb>
-          <Separator.Inline />
-          <PageHeader.FavoriteToggleButton breadcrumb={[manifest.title]} icon="IconClock" />
-        </PageHeader.Start>
-      </PageHeader>
+        </div>
+      </header>
 
-      <main className="phoenix-focus-dashboard phoenix:flex-1 phoenix:overflow-auto phoenix:bg-background phoenix:text-foreground">
-        <div className="phoenix:mx-auto phoenix:grid phoenix:w-full phoenix:max-w-7xl phoenix:gap-4 phoenix:p-4 phoenix:md:gap-5 phoenix:md:p-6 phoenix:xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <aside className="phoenix:grid phoenix:grid-cols-1 phoenix:gap-4 phoenix:lg:grid-cols-[14rem_minmax(0,1fr)] phoenix:lg:content-start">
-            <div className="phoenix:flex phoenix:items-center phoenix:gap-3 phoenix:px-1 phoenix:py-2 phoenix:lg:col-start-1 phoenix:lg:row-start-1">
-              <div className="phoenix:flex phoenix:size-10 phoenix:shrink-0 phoenix:items-center phoenix:justify-center phoenix:rounded-xl phoenix:bg-primary/10 phoenix:text-primary">
-                <IconTarget className="phoenix:size-5" />
-              </div>
-              <div className="phoenix:min-w-0">
-                <p className="phoenix:truncate phoenix:text-lg phoenix:font-semibold phoenix:tracking-tight">
-                  little by little
-                </p>
-                <p className="phoenix:text-xs phoenix:text-muted-foreground">
-                  A quiet space to focus
-                </p>
-              </div>
-            </div>
-
-            <div className="phoenix:flex phoenix:flex-col phoenix:gap-2 phoenix:px-1 phoenix:py-1 phoenix:lg:col-start-1 phoenix:lg:row-start-2">
-              <p className="phoenix:text-xs phoenix:font-medium phoenix:uppercase phoenix:tracking-wider phoenix:text-muted-foreground">
-                Your focus space
+      <main className="phoenix:min-h-0 phoenix:flex-1 phoenix:overflow-auto">
+        <div className="phoenix:mx-auto phoenix:grid phoenix:w-full phoenix:max-w-[1500px] phoenix:gap-4 phoenix:p-4 phoenix:lg:grid-cols-[14rem_minmax(0,1fr)] phoenix:xl:grid-cols-[14rem_minmax(0,1fr)_14rem]">
+          <aside className="phoenix:flex phoenix:flex-col phoenix:gap-3">
+            <div className="phoenix:px-1 phoenix:py-1">
+              <p className="phoenix:mb-2 phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-widest phoenix:text-[#8da594]">
+                Home
               </p>
-              <h1 className="phoenix:text-xl phoenix:font-semibold phoenix:leading-tight phoenix:tracking-tight">
-                {profile.name ? `A little focus, ${profile.name}?` : "A little focus?"}
+              <h1 className="phoenix:text-[21px] phoenix:font-semibold phoenix:leading-tight">
+                A little focus,
+                <br />
+                {profile.name || "friend"}?
               </h1>
-              <p className="phoenix:text-sm phoenix:leading-relaxed phoenix:text-muted-foreground">
-                Start with a clear task and a quiet block. Small, steady moments
-                add up.
+              <p className="phoenix:mt-2 phoenix:text-xs phoenix:leading-relaxed phoenix:text-muted-foreground">
+                Start with a quiet block, a clear task, and a reminder that progress is built in
+                small, steady moments.
               </p>
             </div>
 
-            <Card className="phoenix:border-[#2a352e] phoenix:bg-[#171d19] phoenix:lg:col-start-1 phoenix:lg:row-start-3">
-              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-2 phoenix:p-4">
-                <p className="phoenix:text-xs phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-primary">
-                  A gentle reminder
+            <Card className="phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-2 phoenix:p-3">
+                <p className="phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-[#aab7aa]">
+                  A quiet reminder
                 </p>
-                <p className="phoenix:text-sm phoenix:font-medium">
-                  No rush. One task, one breath, one focused interval at a time.
+                <p className="phoenix:text-sm phoenix:font-semibold phoenix:leading-snug">
+                  One page at a time. One breath at a time.
+                </p>
+                <p className="phoenix:text-[11px] phoenix:leading-relaxed phoenix:text-muted-foreground">
+                  No pressure, no rush. Just one small step at a time.
                 </p>
               </Card.Content>
             </Card>
 
-            <Card className="phoenix:overflow-hidden phoenix:border-[#29352d] phoenix:bg-[#151a16] phoenix:lg:col-start-2 phoenix:lg:row-span-4 phoenix:lg:row-start-1">
-              <Card.Header className="phoenix:items-center">
-                <div className="phoenix:flex phoenix:size-9 phoenix:items-center phoenix:justify-center phoenix:rounded-xl phoenix:bg-primary/10 phoenix:text-primary">
-                  <IconTarget className="phoenix:size-5" />
-                </div>
-                <Card.Title>Pomodoro timer</Card.Title>
-                <Card.Description>Focus on one thing at a time.</Card.Description>
-              </Card.Header>
-              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:items-center phoenix:gap-5">
-                <MenuBar
-                  items={[...TIMER_MENU_ITEMS]}
-                  activeItem={MODE_LABELS[timer.mode]}
-                  onItemClick={(label) => {
-                    const mode: TimerMode =
-                      label === "Focus"
-                        ? "focus"
-                        : label === "Short break"
-                          ? "shortBreak"
-                          : "longBreak";
-                    selectMode(mode);
-                  }}
-                  className="phoenix:w-full"
-                />
-
-                <div
-                  className="phoenix:relative phoenix:flex phoenix:size-52 phoenix:items-center phoenix:justify-center"
-                  role="timer"
-                  aria-label={`${MODE_LABELS[timer.mode]} timer, ${formatTime(remainingMs)} remaining`}
-                >
-                  <svg
-                    className="phoenix:absolute phoenix:inset-0 phoenix:size-full phoenix:-rotate-90"
-                    viewBox="0 0 220 220"
-                    aria-hidden="true"
-                  >
-                    <circle
-                      cx="110"
-                      cy="110"
-                      r="96"
-                      fill="none"
-                      strokeWidth="8"
-                      className="phoenix:stroke-muted"
-                    />
-                    <circle
-                      cx="110"
-                      cy="110"
-                      r="96"
-                      fill="none"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeDasharray={2 * Math.PI * 96}
-                      strokeDashoffset={2 * Math.PI * 96 * (1 - progress)}
-                      className="phoenix:stroke-primary phoenix:transition-[stroke-dashoffset] phoenix:duration-300"
-                    />
-                  </svg>
-                  <div className="phoenix:flex phoenix:flex-col phoenix:items-center phoenix:gap-2">
-                    <span className="phoenix:text-sm phoenix:font-medium phoenix:text-muted-foreground">
-                      {timer.isRunning ? "In progress" : MODE_LABELS[timer.mode]}
-                    </span>
-                    <span className="phoenix:font-mono phoenix:text-5xl phoenix:font-semibold phoenix:tracking-tight phoenix:tabular-nums">
-                      {formatTime(remainingMs)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="phoenix:flex phoenix:w-full phoenix:items-center phoenix:justify-center phoenix:gap-2">
-                  <Button size="lg" onClick={toggleTimer}>
-                    {timer.isRunning ? <IconPlayerPause /> : <IconPlayerPlay />}
-                    {timer.isRunning ? "Pause" : "Start"}
-                  </Button>
-                  <Button variant="outline" size="lg" aria-label="Reset timer" onClick={resetTimer}>
-                    <IconRefresh />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    aria-label="Skip to the next timer phase"
-                    onClick={() => advancePhase(false)}
-                  >
-                    <IconPlayerSkipForward />
-                  </Button>
-                </div>
-              </Card.Content>
-            </Card>
-
-            <Card className="phoenix:border-[#2a352e] phoenix:bg-[#171d19] phoenix:lg:col-start-1 phoenix:lg:row-start-4">
-              <Card.Header>
-                <Card.Title>Your progress</Card.Title>
-                <Card.Description>Completed focus sessions</Card.Description>
-              </Card.Header>
-              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-4">
-                <div className="phoenix:flex phoenix:items-center phoenix:gap-3">
-                  <div className="phoenix:flex phoenix:size-10 phoenix:items-center phoenix:justify-center phoenix:rounded-lg phoenix:bg-primary/10 phoenix:text-primary">
-                    <IconCheck className="phoenix:size-5" />
-                  </div>
-                  <div>
-                    <p className="phoenix:text-2xl phoenix:font-semibold phoenix:tabular-nums">
-                      {timer.focusSessions}
-                    </p>
-                    <p className="phoenix:text-sm phoenix:text-muted-foreground">
-                      focus {timer.focusSessions === 1 ? "session" : "sessions"}
-                    </p>
-                  </div>
-                </div>
-                <Separator />
-                <div className="phoenix:flex phoenix:items-center phoenix:justify-between phoenix:text-sm">
-                  <span className="phoenix:flex phoenix:items-center phoenix:gap-2 phoenix:text-muted-foreground">
-                    <IconCoffee className="phoenix:size-4" />
-                    Next long break
-                  </span>
-                  <span className="phoenix:font-medium">
-                    {timer.mode === "longBreak"
-                      ? "Now"
-                      : `${CYCLE_LENGTH - completedInCycle} ${
-                          CYCLE_LENGTH - completedInCycle === 1 ? "session" : "sessions"
-                        }`}
+            <Card className="phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-3 phoenix:p-3">
+                <p className="phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-[#aab7aa]">
+                  Session progress
+                </p>
+                <div className="phoenix:flex phoenix:items-center phoenix:justify-between">
+                  <span className="phoenix:text-xs phoenix:text-muted-foreground">Focus time</span>
+                  <span className="phoenix:text-xs phoenix:font-semibold">
+                    {Math.round(progress * 100)}%
                   </span>
                 </div>
+                <div className="phoenix:h-1.5 phoenix:overflow-hidden phoenix:rounded-full phoenix:bg-[#263129]">
+                  <div
+                    className="phoenix:h-full phoenix:rounded-full phoenix:bg-[#77a88a] phoenix:transition-all"
+                    style={{ width: `${progress * 100}%` }}
+                  />
+                </div>
+                <p className="phoenix:text-[11px] phoenix:text-muted-foreground">
+                  {timer.isRunning
+                    ? `${formatTime(remainingMs)} remaining`
+                    : "Ready for your next focus block"}
+                </p>
               </Card.Content>
             </Card>
-          </aside>
 
-          <section className="phoenix:flex phoenix:min-h-[32rem] phoenix:flex-col">
-            <Card className="phoenix:flex-1 phoenix:overflow-hidden phoenix:border-[#29352d] phoenix:bg-[#151a16]">
-              <Card.Header>
-                <div className="phoenix:flex phoenix:size-10 phoenix:items-center phoenix:justify-center phoenix:rounded-xl phoenix:bg-primary/10 phoenix:text-primary">
-                  <IconListCheck className="phoenix:size-5" />
+            <Card className="phoenix:min-h-0 phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-3 phoenix:p-3">
+                <div className="phoenix:flex phoenix:items-center phoenix:justify-between phoenix:gap-2">
+                  <p className="phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-[#aab7aa]">
+                    Today’s focus
+                  </p>
+                  <span className="phoenix:text-[10px] phoenix:text-muted-foreground">
+                    {completedTodos}/{todos.length}
+                  </span>
                 </div>
-                <Card.Title>To-do list</Card.Title>
-                <Card.Description>
-                  {openTodos.length === 0
-                    ? "Plan a small step for your next focus session."
-                    : `${openTodos.length} ${openTodos.length === 1 ? "task" : "tasks"} to do · ${completedTodos} completed`}
-                </Card.Description>
-              </Card.Header>
-              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-5">
-                <form
-                  className="phoenix:flex phoenix:gap-2"
-                  onSubmit={addTodo}
-                >
+                <form className="phoenix:flex phoenix:gap-1.5" onSubmit={addTodo}>
                   <label className="phoenix:sr-only" htmlFor="new-todo">
-                    Add a task
+                    Add a focus task
                   </label>
                   <input
                     id="new-todo"
-                    className="phoenix:h-11 phoenix:min-w-0 phoenix:flex-1 phoenix:rounded-md phoenix:border phoenix:border-border phoenix:bg-background phoenix:px-3 phoenix:text-sm phoenix:outline-none focus:phoenix:ring-2 focus:phoenix:ring-ring"
-                    type="text"
+                    className="phoenix:h-8 phoenix:min-w-0 phoenix:flex-1 phoenix:rounded-lg phoenix:border phoenix:border-[#303b33] phoenix:bg-[#101411] phoenix:px-2 phoenix:text-[11px] phoenix:outline-none focus:phoenix:ring-1 focus:phoenix:ring-[#75a88b]"
                     maxLength={160}
-                    placeholder="What needs to get done?"
+                    placeholder="Add a task..."
                     value={newTodo}
                     onChange={(event) => setNewTodo(event.target.value)}
                   />
-                  <Button type="submit" disabled={!newTodo.trim()}>
-                    <IconPlus />
-                    Add task
+                  <Button
+                    type="submit"
+                    size="icon"
+                    variant="outline"
+                    className="phoenix:size-8"
+                    aria-label="Add task"
+                    disabled={!newTodo.trim()}
+                  >
+                    <IconPlus className="phoenix:size-4" />
                   </Button>
                 </form>
-
-                {todos.length === 0 ? (
-                  <div className="phoenix:flex phoenix:min-h-56 phoenix:flex-col phoenix:items-center phoenix:justify-center phoenix:gap-2 phoenix:rounded-xl phoenix:border phoenix:border-dashed phoenix:border-border phoenix:p-6 phoenix:text-center">
-                    <IconListCheck className="phoenix:size-8 phoenix:text-muted-foreground" />
-                    <p className="phoenix:font-medium">Your list is clear</p>
-                    <p className="phoenix:text-sm phoenix:text-muted-foreground">
-                      Add a task above to get started.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="phoenix:flex phoenix:flex-col phoenix:divide-y phoenix:divide-border">
-                    {[...openTodos, ...todos.filter((item) => item.completed)].map((item) => (
-                      <li
-                        key={item.id}
-                        className="phoenix:flex phoenix:items-center phoenix:gap-3 phoenix:py-3"
-                      >
-                        <input
-                          id={`todo-${item.id}`}
-                          className="phoenix:size-4 phoenix:shrink-0 phoenix:accent-primary"
-                          type="checkbox"
-                          checked={item.completed}
-                          onChange={() => toggleTodo(item.id)}
-                          aria-label={`Mark ${item.title} ${item.completed ? "incomplete" : "complete"}`}
-                        />
-                        <label
-                          htmlFor={`todo-${item.id}`}
-                          className={`phoenix:min-w-0 phoenix:flex-1 phoenix:cursor-pointer phoenix:text-sm ${
-                            item.completed
-                              ? "phoenix:text-muted-foreground phoenix:line-through"
-                              : "phoenix:font-medium"
-                          }`}
-                        >
-                          {item.title}
-                        </label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Delete ${item.title}`}
-                          onClick={() => removeTodo(item.id)}
-                        >
-                          <IconTrash className="phoenix:size-4" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {todos.length > 0 && (
-                  <div className="phoenix:flex phoenix:items-center phoenix:justify-between phoenix:border-t phoenix:border-border phoenix:pt-4 phoenix:text-sm phoenix:text-muted-foreground">
-                    <span>
-                      {completedTodos} of {todos.length} completed
-                    </span>
-                    {completedTodos > 0 && (
-                      <Button
+                <ul className="phoenix:flex phoenix:flex-col phoenix:gap-2">
+                  {todos.map((todo, index) => (
+                    <li key={todo.id} className="phoenix:flex phoenix:items-start phoenix:gap-2">
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setTodos((current) => current.filter((item) => !item.completed))}
+                        aria-label={`${todo.completed ? "Reopen" : "Complete"} ${todo.title}`}
+                        className={`phoenix:mt-0.5 phoenix:flex phoenix:size-4 phoenix:shrink-0 phoenix:items-center phoenix:justify-center phoenix:rounded-full phoenix:border ${todo.completed ? "phoenix:border-[#75a88b] phoenix:bg-[#75a88b] phoenix:text-[#101411]" : "phoenix:border-[#526457] phoenix:text-transparent"}`}
+                        onClick={() =>
+                          setTodos((current) =>
+                            current.map((item) =>
+                              item.id === todo.id ? { ...item, completed: !item.completed } : item,
+                            ),
+                          )
+                        }
                       >
-                        Clear completed
-                      </Button>
-                    )}
+                        {todo.completed && <IconCheck className="phoenix:size-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        className={`phoenix:min-w-0 phoenix:flex-1 phoenix:text-left phoenix:text-[11px] phoenix:leading-snug ${todo.completed ? "phoenix:text-muted-foreground phoenix:line-through" : "phoenix:text-[#e0e5df]"}`}
+                        onClick={() => setTimer((current) => ({ ...current, task: todo.title }))}
+                      >
+                        <span className="phoenix:mr-1 phoenix:text-[#83a08d]">{index + 1}.</span>
+                        {todo.title}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete ${todo.title}`}
+                        className="phoenix:text-muted-foreground hover:phoenix:text-foreground"
+                        onClick={() =>
+                          setTodos((current) => current.filter((item) => item.id !== todo.id))
+                        }
+                      >
+                        <IconTrash className="phoenix:size-3" />
+                      </button>
+                    </li>
+                  ))}
+                  {todos.length === 0 && (
+                    <li className="phoenix:py-1 phoenix:text-[11px] phoenix:text-muted-foreground">
+                      Add a task to begin your list.
+                    </li>
+                  )}
+                </ul>
+              </Card.Content>
+            </Card>
+
+            <nav
+              aria-label="Focus dashboard"
+              className="phoenix:flex phoenix:flex-wrap phoenix:gap-1.5"
+            >
+              <TabButton
+                active={activeTab === "timer"}
+                icon={IconClock}
+                label="Timer"
+                onClick={() => setActiveTab("timer")}
+              />
+              <TabButton
+                active={activeTab === "progress"}
+                icon={IconChartBar}
+                label="Progress"
+                onClick={() => setActiveTab("progress")}
+              />
+              <TabButton
+                active={activeTab === "character"}
+                icon={IconMoodSmile}
+                label="Character"
+                onClick={() => {
+                  setActiveTab("character");
+                  setProfileOpen(true);
+                }}
+              />
+            </nav>
+          </aside>
+
+          <section className="phoenix:flex phoenix:min-h-[36rem] phoenix:flex-col phoenix:gap-3">
+            <Card className="phoenix:relative phoenix:min-h-36 phoenix:overflow-hidden phoenix:border-[#29352d] phoenix:bg-[#171d19]">
+              <div className="phoenix:pointer-events-none phoenix:absolute phoenix:-left-10 phoenix:-top-20 phoenix:size-56 phoenix:rounded-full phoenix:bg-[#617d6b]/10" />
+              <div className="phoenix:pointer-events-none phoenix:absolute phoenix:-right-5 phoenix:-top-16 phoenix:size-56 phoenix:rounded-full phoenix:bg-[#4f7357]/10" />
+              <Card.Content className="phoenix:relative phoenix:flex phoenix:min-h-36 phoenix:flex-col phoenix:justify-between phoenix:p-4">
+                <div className="phoenix:flex phoenix:items-start phoenix:justify-between phoenix:gap-4">
+                  <div>
+                    <p className="phoenix:text-[9px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-widest phoenix:text-[#9cac9e]">
+                      {timer.mode === "focus" ? "Active focus" : "A moment to pause"}
+                    </p>
+                    <h2 className="phoenix:mt-1 phoenix:text-lg phoenix:font-semibold">
+                      {timer.mode === "focus"
+                        ? "Your focus is resting here"
+                        : `Time for a ${MODE_LABELS[timer.mode].toLowerCase()}`}
+                    </h2>
                   </div>
+                  <span className="phoenix:rounded-full phoenix:border phoenix:border-[#354237] phoenix:bg-[#19211b]/80 phoenix:px-2.5 phoenix:py-1 phoenix:text-[10px] phoenix:text-[#b7c4b8]">
+                    Session {completedInCycle + 1} of {CYCLE_LENGTH}
+                  </span>
+                </div>
+                <div className="phoenix:flex phoenix:justify-center phoenix:py-1">
+                  <RestingCat />
+                </div>
+              </Card.Content>
+            </Card>
+
+            <Card className="phoenix:flex-1 phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:h-full phoenix:flex-col phoenix:gap-4 phoenix:p-4 phoenix:md:p-5">
+                {activeTab === "progress" ? (
+                  <>
+                    <div>
+                      <p className="phoenix:text-[9px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-widest phoenix:text-[#9cac9e]">
+                        Your journey
+                      </p>
+                      <h2 className="phoenix:mt-1 phoenix:text-xl phoenix:font-semibold">
+                        Today’s progress
+                      </h2>
+                    </div>
+                    <div className="phoenix:grid phoenix:grid-cols-2 phoenix:gap-3">
+                      <div className="phoenix:rounded-xl phoenix:border phoenix:border-[#29352d] phoenix:bg-[#171d19] phoenix:p-4">
+                        <p className="phoenix:text-xs phoenix:text-muted-foreground">
+                          Focus sessions
+                        </p>
+                        <p className="phoenix:mt-2 phoenix:text-3xl phoenix:font-semibold">
+                          {completedSessions}
+                        </p>
+                      </div>
+                      <div className="phoenix:rounded-xl phoenix:border phoenix:border-[#29352d] phoenix:bg-[#171d19] phoenix:p-4">
+                        <p className="phoenix:text-xs phoenix:text-muted-foreground">
+                          Tasks complete
+                        </p>
+                        <p className="phoenix:mt-2 phoenix:text-3xl phoenix:font-semibold">
+                          {completedTodos}/{todos.length}
+                        </p>
+                      </div>
+                    </div>
+                    <Separator />
+                    <p className="phoenix:text-sm phoenix:text-muted-foreground">
+                      {CYCLE_LENGTH - completedInCycle} focus{" "}
+                      {CYCLE_LENGTH - completedInCycle === 1 ? "session" : "sessions"} until your
+                      next long break. Keep going at your own pace.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="phoenix:self-start"
+                      onClick={() => setActiveTab("timer")}
+                    >
+                      <IconClock />
+                      Back to timer
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <MenuBar
+                      items={[...TIMER_MENU_ITEMS]}
+                      activeItem={MODE_LABELS[timer.mode]}
+                      onItemClick={(label) => {
+                        const mode: TimerMode =
+                          label === "Focus"
+                            ? "focus"
+                            : label === "Short break"
+                              ? "shortBreak"
+                              : "longBreak";
+                        selectMode(mode);
+                      }}
+                      className="phoenix:w-full"
+                    />
+                    <div className="phoenix:flex phoenix:flex-wrap phoenix:items-start phoenix:justify-between phoenix:gap-3">
+                      <div>
+                        <p className="phoenix:text-[9px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-widest phoenix:text-[#9cac9e]">
+                          Current task
+                        </p>
+                        <h2 className="phoenix:mt-1 phoenix:break-words phoenix:text-lg phoenix:font-semibold">
+                          {currentTask}
+                        </h2>
+                      </div>
+                      <div className="phoenix:flex phoenix:items-center phoenix:gap-2">
+                        <IconClock className="phoenix:size-4 phoenix:text-[#83a98f]" />
+                        <span className="phoenix:text-xs phoenix:text-muted-foreground">
+                          {MODE_LABELS[timer.mode]}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="phoenix:flex phoenix:items-center phoenix:gap-2">
+                      <div className="phoenix:h-1 phoenix:flex-1 phoenix:overflow-hidden phoenix:rounded-full phoenix:bg-[#263129]">
+                        <div
+                          className="phoenix:h-full phoenix:rounded-full phoenix:bg-[#75a88b]"
+                          style={{ width: `${Math.max(3, progress * 100)}%` }}
+                        />
+                      </div>
+                      <span className="phoenix:text-[10px] phoenix:text-muted-foreground">
+                        {Math.round(progress * 100)}%
+                      </span>
+                    </div>
+
+                    <div className="phoenix:grid phoenix:flex-1 phoenix:place-items-center phoenix:overflow-hidden phoenix:rounded-xl phoenix:border phoenix:border-[#29352d] phoenix:bg-[#111713] phoenix:p-2">
+                      <div className="phoenix:flex phoenix:w-full phoenix:flex-col phoenix:items-center phoenix:gap-1">
+                        <RestingCat />
+                        <div className="phoenix:rounded-xl phoenix:border phoenix:border-[#344338] phoenix:bg-[#1a231d] phoenix:px-4 phoenix:py-2 phoenix:text-center phoenix:text-xs phoenix:text-[#dce4dc]">
+                          One page at a time.
+                          <br />
+                          You’re doing just fine.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="phoenix:flex phoenix:flex-col phoenix:items-center phoenix:gap-3">
+                      <div className="phoenix:flex phoenix:items-center phoenix:gap-3">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          aria-label="Reset timer"
+                          onClick={() =>
+                            setTimer((current) => ({
+                              ...current,
+                              remainingMs: DURATIONS[current.mode],
+                              endsAt: null,
+                              isRunning: false,
+                            }))
+                          }
+                        >
+                          <IconRefresh className="phoenix:size-4" />
+                        </Button>
+                        <Button
+                          size="lg"
+                          className="phoenix:min-w-40 phoenix:bg-[#47745a] phoenix:text-white hover:phoenix:bg-[#568866]"
+                          onClick={toggleTimer}
+                        >
+                          {timer.isRunning ? <IconPlayerPause /> : <IconPlayerPlay />}
+                          {timer.isRunning ? "Pause focus" : "Let’s focus"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          aria-label="Skip to next phase"
+                          onClick={() => advancePhase(false)}
+                        >
+                          <IconPlayerSkipForward className="phoenix:size-4" />
+                        </Button>
+                      </div>
+                      <div className="phoenix:flex phoenix:items-center phoenix:gap-2 phoenix:font-mono phoenix:text-3xl phoenix:font-semibold phoenix:tabular-nums phoenix:text-[#e9eee9]">
+                        {formatTime(remainingMs)}
+                        <span className="phoenix:font-sans phoenix:text-xs phoenix:font-normal phoenix:text-muted-foreground">
+                          remaining
+                        </span>
+                      </div>
+                    </div>
+                  </>
                 )}
               </Card.Content>
             </Card>
           </section>
+
+          <aside className="phoenix:flex phoenix:flex-col phoenix:gap-3">
+            <Card className="phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-3 phoenix:p-3">
+                <div className="phoenix:flex phoenix:items-center phoenix:justify-between">
+                  <p className="phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-[#aab7aa]">
+                    Ambient sound
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={ambientOn ? "Mute ambient sound" : "Enable ambient sound"}
+                    onClick={() => setAmbientOn((value) => !value)}
+                    className="phoenix:text-[#86ac91]"
+                  >
+                    <IconVolume className="phoenix:size-4" />
+                  </button>
+                </div>
+                <label className="phoenix:relative phoenix:block">
+                  <span className="phoenix:sr-only">Ambient sound</span>
+                  <select
+                    value={ambient}
+                    onChange={(event) => setAmbient(event.target.value)}
+                    className="phoenix:h-9 phoenix:w-full phoenix:appearance-none phoenix:rounded-lg phoenix:border phoenix:border-[#303b33] phoenix:bg-[#111713] phoenix:px-3 phoenix:pr-8 phoenix:text-xs phoenix:outline-none focus:phoenix:ring-1 focus:phoenix:ring-[#75a88b]"
+                  >
+                    <option>Rainy afternoon</option>
+                    <option>Forest breeze</option>
+                    <option>Quiet café</option>
+                    <option>Soft fireplace</option>
+                    <option>Silence</option>
+                  </select>
+                  <IconChevronDown className="phoenix:pointer-events-none phoenix:absolute phoenix:right-2.5 phoenix:top-2.5 phoenix:size-4 phoenix:text-muted-foreground" />
+                </label>
+                <p className="phoenix:text-[10px] phoenix:leading-relaxed phoenix:text-muted-foreground">
+                  {ambientOn
+                    ? "A soft soundscape to help you settle into focus."
+                    : "Ambient sound is muted for now."}
+                </p>
+              </Card.Content>
+            </Card>
+
+            <Card className="phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-2 phoenix:p-3">
+                <p className="phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-[#aab7aa]">
+                  A little pet care
+                </p>
+                <div className="phoenix:flex phoenix:items-center phoenix:gap-2">
+                  <span className="phoenix:flex phoenix:size-8 phoenix:items-center phoenix:justify-center phoenix:rounded-full phoenix:bg-[#1e2a21] phoenix:text-[#8bb497]">
+                    <IconMoodSmile className="phoenix:size-4" />
+                  </span>
+                  <p className="phoenix:text-xs phoenix:font-medium">
+                    Your pet is resting peacefully.
+                  </p>
+                </div>
+                <p className="phoenix:text-[10px] phoenix:leading-relaxed phoenix:text-muted-foreground">
+                  {sleepMode
+                    ? "A calm space keeps your focus companion cozy."
+                    : "Your companion is ready for a little attention."}
+                </p>
+                <button
+                  type="button"
+                  aria-pressed={sleepMode}
+                  onClick={() => setSleepMode((value) => !value)}
+                  className="phoenix:flex phoenix:items-center phoenix:justify-between phoenix:rounded-lg phoenix:border phoenix:border-[#303b33] phoenix:bg-[#111713] phoenix:px-2.5 phoenix:py-2 phoenix:text-[10px] phoenix:text-[#b4c1b5]"
+                >
+                  {sleepMode ? "Sleep mode active" : "Wake your companion"}
+                  <span
+                    className={`phoenix:size-2 phoenix:rounded-full ${sleepMode ? "phoenix:bg-[#75a88b]" : "phoenix:bg-[#69746b]"}`}
+                  />
+                </button>
+              </Card.Content>
+            </Card>
+
+            <Card className="phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:flex-col phoenix:gap-2 phoenix:p-3">
+                <p className="phoenix:text-[10px] phoenix:font-semibold phoenix:uppercase phoenix:tracking-wide phoenix:text-[#aab7aa]">
+                  Next break
+                </p>
+                <div className="phoenix:flex phoenix:items-center phoenix:gap-2">
+                  <IconCoffee className="phoenix:size-4 phoenix:text-[#83a98f]" />
+                  <p className="phoenix:text-xs phoenix:font-semibold">
+                    {timer.mode === "longBreak"
+                      ? "Long break is next"
+                      : `${remainingToLongBreak} ${remainingToLongBreak === 1 ? "session" : "sessions"} until a long break`}
+                  </p>
+                </div>
+                <p className="phoenix:text-[10px] phoenix:text-muted-foreground">
+                  Take a five-minute breather after this session.
+                </p>
+                <span className="phoenix:w-fit phoenix:rounded-full phoenix:bg-[#1e2a21] phoenix:px-2.5 phoenix:py-1 phoenix:text-[10px] phoenix:text-[#9cbea4]">
+                  5-minute reset
+                </span>
+              </Card.Content>
+            </Card>
+
+            <Card className="phoenix:border-[#29352d] phoenix:bg-[#151a16]">
+              <Card.Content className="phoenix:flex phoenix:items-center phoenix:gap-2 phoenix:p-3">
+                <IconCheck className="phoenix:size-4 phoenix:text-[#83a98f]" />
+                <p className="phoenix:text-xs phoenix:text-muted-foreground">
+                  {completedSessions} focus {completedSessions === 1 ? "session" : "sessions"}{" "}
+                  completed
+                </p>
+              </Card.Content>
+            </Card>
+          </aside>
         </div>
       </main>
-
-      <nav
-        aria-label="Pomodoro sections"
-        className="phoenix:flex phoenix:justify-center phoenix:border-t phoenix:border-border phoenix:bg-background/95 phoenix:px-4 phoenix:py-3 phoenix:backdrop-blur"
-      >
-        <div className="phoenix:flex phoenix:w-full phoenix:max-w-md phoenix:gap-2">
-          <Button
-            type="button"
-            variant={profileOpen ? "ghost" : "secondary"}
-            className="phoenix:flex-1"
-            aria-current={profileOpen ? undefined : "page"}
-            onClick={() => setProfileOpen(false)}
-          >
-            <IconClock />
-            Timer
-          </Button>
-          <Button
-            type="button"
-            variant={profileOpen ? "secondary" : "ghost"}
-            className="phoenix:flex-1"
-            aria-current={profileOpen ? "page" : undefined}
-            onClick={() => setProfileOpen(true)}
-          >
-            <IconUserCircle />
-            Avatar
-          </Button>
-        </div>
-      </nav>
 
       <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
         <Sheet.View side="right" className="phoenix:w-full phoenix:sm:max-w-md">
           <Sheet.Header>
-            <Sheet.Title>Customize your profile</Sheet.Title>
+            <Sheet.Title>Character customization</Sheet.Title>
             <Sheet.Description>
-              Choose an avatar and name for your focus space. These settings stay on this device.
+              Shape your focus companion and personalize your quiet space.
             </Sheet.Description>
             <Sheet.Close />
           </Sheet.Header>
@@ -706,30 +908,22 @@ export const IndexPage = () => {
                 {profile.avatar}
               </div>
               <div className="phoenix:text-center">
-                <p className="phoenix:font-medium">{profile.name || "Your focus profile"}</p>
-                <p className="phoenix:text-sm phoenix:text-muted-foreground">
-                  Your personal Pomodoro space
-                </p>
+                <p className="phoenix:font-medium">{profile.name || "Your focus companion"}</p>
+                <p className="phoenix:text-sm phoenix:text-muted-foreground">A little more you.</p>
               </div>
             </div>
-
             <label className="phoenix:flex phoenix:flex-col phoenix:gap-2">
               <span className="phoenix:text-sm phoenix:font-medium">Display name</span>
               <input
                 className="phoenix:h-10 phoenix:w-full phoenix:rounded-md phoenix:border phoenix:border-border phoenix:bg-background phoenix:px-3 phoenix:text-sm phoenix:outline-none focus:phoenix:ring-2 focus:phoenix:ring-ring"
-                type="text"
                 maxLength={40}
                 placeholder="What should we call you?"
                 value={profile.name}
                 onChange={(event) =>
-                  setProfile((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
+                  setProfile((current) => ({ ...current, name: event.target.value }))
                 }
               />
             </label>
-
             <fieldset className="phoenix:flex phoenix:flex-col phoenix:gap-3">
               <legend className="phoenix:text-sm phoenix:font-medium">Choose your avatar</legend>
               <div className="phoenix:grid phoenix:grid-cols-5 phoenix:gap-2">
